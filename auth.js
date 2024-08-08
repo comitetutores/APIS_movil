@@ -6,94 +6,139 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 router.use(bodyParser.json());
 
+// Ruta de login
 router.post('/login', async (req, res) => {
-  const { matricula, password } = req.body;
-  const matriculaNum = Number(matricula);
+    const { matricula, password } = req.body;
+    const matriculaNum = Number(matricula);
 
-  if (isNaN(matriculaNum)) { 
-      return res.status(400).json({ error: 'Matrícula no válida' });
-  }
+    if (isNaN(matriculaNum)) {
+        return res.status(400).json({ error: 'Matrícula no válida' });
+    }
 
-  const client = await pool.connect();
-  try {
-      const query = `
-          SELECT * FROM usuarios WHERE matricula = $1 OR matricula_tutor = $1
-      `;
-      const result = await client.query(query, [matriculaNum]);
+    const client = await pool.connect();
+    try {
+        const query = `SELECT * FROM usuarios WHERE matricula = $1 OR matricula_tutor = $1`;
+        const result = await client.query(query, [matriculaNum]);
 
-      if (result.rows.length > 0) {
-          const user = result.rows[0];
+        if (result.rows.length > 0) {
+            const user = result.rows[0];
 
-          if (password === user.contraseña) {
-              // Determinar qué matrícula usar en el token
-              const userMatricula = user.matricula || user.matricula_tutor;
-              
-              const token = jwt.sign({ matricula: userMatricula }, 'tu_secreto', { expiresIn: '1h' });
-              res.json({
-                  token,
-                  id_rol: user.id_rol,
-                  nombre: user.nombre,
-                  app: user.app,
-                  apm: user.apm,
-                  correo: user.correo,
-                  matricula: userMatricula
-              });
-          } else {
-              res.status(401).json({ error: 'Contraseña incorrecta' });
-          }
-      } else {
-          res.status(401).json({ error: 'Usuario no encontrado' });
-      }
-  } catch (err) {
-      console.error('Error en la autenticación', err);
-      res.status(500).json({ error: 'Error en la autenticación' });
-  } finally {
-      client.release();
-  }
+            if (password === user.contraseña) {
+                const userMatricula = user.matricula || user.matricula_tutor;
+                const token = jwt.sign({ matricula: userMatricula }, 'tu_secreto', { expiresIn: '1h' });
+                res.json({
+                    token,
+                    id_rol: user.id_rol,
+                    nombre: user.nombre,
+                    app: user.app,
+                    apm: user.apm,
+                    correo: user.correo,
+                    matricula: userMatricula
+                });
+            } else {
+                res.status(401).json({ error: 'Contraseña incorrecta' });
+            }
+        } else {
+            res.status(401).json({ error: 'Usuario no encontrado' });
+        }
+    } catch (err) {
+        console.error('Error en la autenticación', err);
+        res.status(500).json({ error: 'Error en la autenticación' });
+    } finally {
+        client.release();
+    }
 });
 
-
+// Ruta para obtener usuario autenticado
 router.get('/usuario', async (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1];
+    const token = req.headers.authorization?.split(' ')[1];
 
-  if (!token) {
-      return res.status(401).json({ error: 'Token no proporcionado' });
-  }
+    if (!token) {
+        return res.status(401).json({ error: 'Token no proporcionado' });
+    }
 
-  try {
-      const decoded = jwt.verify(token, 'tu_secreto');
-      const matriculaNum = Number(decoded.matricula);
+    try {
+        const decoded = jwt.verify(token, 'tu_secreto');
+        const matriculaNum = Number(decoded.matricula);
 
-      if (isNaN(matriculaNum)) {
-          return res.status(400).json({ error: 'Matrícula no válida' });
-      }
+        if (isNaN(matriculaNum)) {
+            return res.status(400).json({ error: 'Matrícula no válida' });
+        }
 
-      const client = await pool.connect();
-      try {
-          const query = `
-              SELECT nombre, app, apm, correo, matricula, matricula_tutor FROM usuarios
-              WHERE matricula = $1 OR matricula_tutor = $1
-          `;
-          const result = await client.query(query, [matriculaNum]);
+        const client = await pool.connect();
+        try {
+            const query = `
+                SELECT nombre, app, apm, correo, matricula, matricula_tutor FROM usuarios
+                WHERE matricula = $1 OR matricula_tutor = $1
+            `;
+            const result = await client.query(query, [matriculaNum]);
 
-          if (result.rows.length > 0) {
-              res.json(result.rows[0]);
-          } else {
-              res.status(404).json({ error: 'Usuario no encontrado' });
-          }
-      } catch (err) {
-          console.error('Error al obtener el usuario', err);
-          res.status(500).json({ error: 'Error al obtener el usuario' });
-      } finally {
-          client.release();
-      }
-  } catch (err) {
-      console.error('Error al verificar el token', err);
-      res.status(401).json({ error: 'Token no válido' });
-  }
+            if (result.rows.length > 0) {
+                res.json(result.rows[0]);
+            } else {
+                res.status(404).json({ error: 'Usuario no encontrado' });
+            }
+        } catch (err) {
+            console.error('Error al obtener el usuario', err);
+            res.status(500).json({ error: 'Error al obtener el usuario' });
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Error al verificar el token', err);
+        res.status(401).json({ error: 'Token no válido' });
+    }
 });
 
-// Endpoint para registrar tutoría
+router.get('/formulario', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Token no proporcionado' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, 'tu_secreto');
+        const matriculaNum = Number(decoded.matricula);
+
+        if (isNaN(matriculaNum)) {
+            return res.status(400).json({ error: 'Matrícula no válida' });
+        }
+
+        const client = await pool.connect();
+        try {
+            const query = `
+SELECT nombre AS nombre_tutor, grupoa AS grupo_tutor,
+       (SELECT nombre FROM usuarios WHERE matricula = 5122180007) AS nombre_alumno,
+       (SELECT matricula FROM usuarios WHERE matricula = 5122180007) AS matricula_alumno,
+       (SELECT nombre_carrera FROM usuarios WHERE matricula = 5122180007) AS carrera_alumno
+FROM usuarios
+WHERE matricula = $1 OR matricula_tutor = $1;
+
+`;
+
+            const result = await client.query(query, [matriculaNum]);
+
+            if (result.rows.length > 0) {
+                res.json(result.rows[0]);
+            } else {
+                res.status(404).json({ error: 'Usuario no encontrado' });
+            }
+        } catch (err) {
+            console.error('Error al obtener el usuario', err);
+            res.status(500).json({ error: 'Error al obtener el usuario' });
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Error al verificar el token', err);
+        res.status(401).json({ error: 'Token no válido' });
+    }
+});
+
+
+
+
 router.post('/registro-tutoria', async (req, res) => {
     const { matricula, nombre_alumno, app, apm, correo_alumno, asesoria, comentarios } = req.body;
 
@@ -116,8 +161,6 @@ router.post('/registro-tutoria', async (req, res) => {
         res.status(500).json({ error: 'Error al registrar la tutoría' });
     }
 });
-
-module.exports = router;
 
 
 module.exports = router;

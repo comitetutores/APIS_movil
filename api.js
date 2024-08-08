@@ -1,14 +1,20 @@
 const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
 const authRouter = require('./auth');
+const pool = require('./connection');
 
 const app = express();
+const port = process.env.PORT || 3300;
 
-// Usar JSON en el cuerpo de las solicitudes
-app.use(express.json());
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
 
-// Usar el router para rutas de autenticación
+// Ruta base
 app.use('/api', authRouter);
 
-app.listen(3300, () => {
-    console.log("Server is now listening on port 3300");
+// Iniciar servidor
+app.listen(port, () => {
+    console.log(`Servidor corriendo en http://localhost:${port}`);
 });
